@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<config>
+
+<fields>
+
+<field tag="650">
+<copy>c</copy>
+<copy>d</copy>
+<translate>a</translate>
+<translate>z</translate>
+</field>
+
+<field tag="600">
+<copy>w</copy>
+<copy>o</copy>
+<translate>f</translate>
+<translate>g</translate>
+</field>
+
+</fields>
+
+<rules>
+
+<rule field="650" subfield="a">
+<original>goodbye</original>
+<translation>adios</translation>
+<source>bogus</source>
+</rule>
+
+<rule field="650" subfield="a">
+<original>hello</original>
+<translation>hola</translation>
+<source>bogus</source>
+</rule>
+
+</rules>
+
+</config>

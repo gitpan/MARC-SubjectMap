@@ -1,0 +1,23 @@
+bin/subject-remove
+bin/subjmap
+bin/subjmap-template
+lib/MARC/SubjectMap.pm
+lib/MARC/SubjectMap/Field.pm
+lib/MARC/SubjectMap/Handler.pm
+lib/MARC/SubjectMap/Rule.pm
+lib/MARC/SubjectMap/Rules.pm
+lib/MARC/SubjectMap/XML.pm
+Makefile.PL
+MANIFEST
+README
+t/field.t
+t/handler.t
+t/marc.dat
+t/rule.t
+t/rules.t
+t/subjectmap.t
+t/test.xml
+t/translate.t
+t/use.t
+t/xml.t
+META.yml                                 Module meta-data (added by MakeMaker)
