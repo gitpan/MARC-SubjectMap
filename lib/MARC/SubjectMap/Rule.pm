@@ -15,6 +15,21 @@ MARC::SubjectMap::Rule - a transformation rule
 
 =head1 METHODS
 
+=head1 new() 
+
+The constructor which can be passed a hash of values to ues in the
+new object. Valid keys are field, subfield, original, translation 
+and source.
+
+=cut
+
+sub new {
+    my ($class,$parms) = @_;
+    $parms->{original} = _normalize($parms->{original}) 
+        if exists $parms->{original};
+    return $class->SUPER::new($parms);
+}
+
 =head2 field()
 
 =head2 subfield()
@@ -27,9 +42,24 @@ MARC::SubjectMap::Rule - a transformation rule
 
 =cut 
 
-my @fields = qw( field subfield original translation source );
+my @fields = qw( field subfield translation source );
 
 __PACKAGE__->mk_accessors( @fields );
+
+sub original {
+    my ($self,$text) = @_;
+    if ( defined $text ) { 
+        $self->{original} = _normalize($text);
+    }
+    return $self->{original};
+}
+
+sub _normalize {
+    my $text = shift;
+    return unless defined $text;
+    $text =~ s/\.$//;
+    return $text;
+}
 
 sub toString {
     my $self = shift;

@@ -7,7 +7,7 @@ use_ok( 'MARC::SubjectMap::Rule' );
 my $r = MARC::SubjectMap::Rule->new( {
     field       => '650',
     subfield    => 'a',
-    original    => 'hello',
+    original    => 'hello.',
     translation => 'hola',
     source      => 'bogus',
 } );
@@ -17,7 +17,6 @@ is( $r->subfield(), 'a', 'subfield()' );
 is( $r->original(), 'hello', 'original()' );
 is( $r->translation(), 'hola', 'translation' );
 is( $r->source(), 'bogus', 'source' );
-
 is( $r->toXML(), join('',<DATA>), 'toXML()' );
 
 __DATA__

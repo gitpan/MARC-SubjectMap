@@ -10,7 +10,7 @@ use MARC::SubjectMap::Handler;
 use XML::SAX::ParserFactory;
 use IO::File;
 
-our $VERSION = '0.2';
+our $VERSION = '0.3';
 
 =head1 NAME
 
