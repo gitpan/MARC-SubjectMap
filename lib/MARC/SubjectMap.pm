@@ -10,7 +10,7 @@ use MARC::SubjectMap::Handler;
 use XML::SAX::ParserFactory;
 use IO::File;
 
-our $VERSION = '0.1';
+our $VERSION = '0.2';
 
 =head1 NAME
 
@@ -31,12 +31,12 @@ MARC::SubjectMap - framework for translating subject headings
 
 MARC::SubjectMap is a framework for providing translations of subject
 headings. MARC::SubjectMap is essentially a configuration which contains
-which a list of fields/subfields to translate or copy, and a list of rules
+a list of fields/subfields to translate or copy, and a list of rules
 for translating one field/subfield value into another.
 
 Typical usage of the framework will be to use the C<subjmap-template>
 command line application to generate a template XML configuration from a 
-batch of MARC records. You tell subjmap-template the fields you'd like
+batch of MARC records. You tell C<subjmap-template> the fields you'd like
 to translate and/or copy and it will look through the records and extract
 and add rule templates for the unique values. For example:
 
@@ -278,7 +278,7 @@ sub log {
 
 sub toXML {
     my ($self,$fh) = @_;
-    print $fh qq(<?xml version="1.0"?>\n);
+    print $fh qq(<?xml version="1.0" encoding="ISO-8859-1"?>\n);
     print $fh startTag( "config" ),"\n\n";
 
     ## add fields
