@@ -93,7 +93,7 @@ VERIFY_ONLY_LCSH_FIELD: {
 
 VERIFY_RECORD_TRANSLATION: {
     my $old = MARC::Record->new();
-    $old->append_fields(MARC::Field->new('600', '', '0', a=>'foo', b=>'goo' ));
+    $old->append_fields(MARC::Field->new('600', '', '0', a=>'foo', b=>'goo.' ));
     my $new = $map->translateRecord($old);
     isa_ok( $new, 'MARC::Record' );
     my @fields = $new->fields( '600' );

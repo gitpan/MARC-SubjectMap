@@ -10,7 +10,7 @@ use MARC::SubjectMap::Handler;
 use XML::SAX::ParserFactory;
 use IO::File;
 
-our $VERSION = '0.4';
+our $VERSION = '0.5';
 
 =head1 NAME
 
@@ -210,10 +210,13 @@ sub translateField {
     my @subfields;
     my %sources;
     foreach my $subfield ( $field->subfields() ) {
+        my ($subfieldCode,$subfieldValue) = @$subfield;
+        # remove trailing period if present
+        $subfieldValue =~ s|\.$||;
         my $rule = $self->{rules}->getRule( 
             field       => $field->tag(),
-            subfield    => $subfield->[0], 
-            original    => $subfield->[1], );
+            subfield    => $subfieldCode, 
+            original    => $subfieldValue, );
         if ( $rule ) { 
 
             ## must have translation
