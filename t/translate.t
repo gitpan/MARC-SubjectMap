@@ -40,7 +40,7 @@ $rules->addRule(
         subfield    => 'b',
         original    => 'goo',
         translation => 'gar',
-        source      => 'bogus'
+        source      => 'bogusy'
     } )
 );
 $rules->addRule(
@@ -64,6 +64,13 @@ VERIFY_FIELD_TRANSLATION: {
     is_deeply( $subfields[0], ['a','bar'], 'translateField() 1' );
     is_deeply( $subfields[1], ['b','gar.'], 'translateField() 2' );
     is_deeply( $subfields[2], ['2','bogus'], 'translateField() 3' );
+}
+
+VERIFY_SOURCE_WHEN_SUBFIELD_A_IS_ABSENT: {
+    my $old = MARC::Field->new( '600', '', '0', b=>'goo' );
+    my $new = $map->translateField($old);
+    isa_ok( $new, 'MARC::Field' );
+    is( $new->subfield(2), "bogusy", "got source from subfield b" );
 }
 
 VERIFY_REAL_TRANSLATION: {

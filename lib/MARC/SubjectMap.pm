@@ -10,7 +10,7 @@ use MARC::SubjectMap::Handler;
 use XML::SAX::ParserFactory;
 use IO::File;
 
-our $VERSION = '0.6';
+our $VERSION = '0.7';
 
 =head1 NAME
 
@@ -208,7 +208,7 @@ sub translateField {
     return if $field->indicator(2) ne '0';
 
     my @subfields;
-    my $source;
+    my ($source, $lastSource);
     foreach my $subfield ( $field->subfields() ) {
         my ($subfieldCode,$subfieldValue) = @$subfield;
         # remove trailing period if present
@@ -227,10 +227,10 @@ sub translateField {
             }
     
             ## if a subfield a store away the source
-            if ( $rule->source() and $subfieldCode eq 'a' ) {
-                $source = $rule->source();
+            if ( $rule->source() ) { 
+                $source = $rule->source() if $subfieldCode eq 'a';
+                $lastSource = $rule->source();
             }
-
         }
         else {
             $self->log( 
@@ -246,7 +246,15 @@ sub translateField {
     $subfields[-1] .= '.' if ( $subfields[-1] !~ /[.)]/ );
 
     ## add source of translations to the field
-    push( @subfields, '2', $source ) if defined($source);
+    ## if we found a subfield a then use the source from that
+    ## otherwise use the last source that we found
+    if ( defined($source) ) {
+        push( @subfields, '2', $source );
+    } elsif( defined($lastSource) ) { 
+        push( @subfields, '2', $lastSource );
+    } else {
+        $self->log( "missing source for new field: ".join('', @subfields ) );
+    }
 
     return MARC::Field->new($field->tag(),$field->indicator(1),7,@subfields);
 }
