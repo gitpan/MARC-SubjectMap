@@ -62,7 +62,7 @@ VERIFY_FIELD_TRANSLATION: {
     my @subfields = $new->subfields();
     is( @subfields, 3, 'expected number of subfields after translateField()' );
     is_deeply( $subfields[0], ['a','bar'], 'translateField() 1' );
-    is_deeply( $subfields[1], ['b','gar'], 'translateField() 2' );
+    is_deeply( $subfields[1], ['b','gar.'], 'translateField() 2' );
     is_deeply( $subfields[2], ['2','bogus'], 'translateField() 3' );
 }
 
@@ -100,7 +100,7 @@ VERIFY_RECORD_TRANSLATION: {
     is( @fields, 2, 'found expected fields after translateRecord()' );
     my @subfields = $fields[1]->subfields();
     is_deeply( $subfields[0], ['a','bar'], 'translateRecord() 1' );
-    is_deeply( $subfields[1], ['b','gar'], 'translateRecord() 2' );
+    is_deeply( $subfields[1], ['b','gar.'], 'translateRecord() 2' );
     is_deeply( $subfields[2], ['2','bogus'], 'translateRecord() 3' );
     is( $fields[1]->indicator(2), 7, 'indicator 2 is set properly' );
 }

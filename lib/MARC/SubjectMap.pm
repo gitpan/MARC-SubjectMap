@@ -10,7 +10,7 @@ use MARC::SubjectMap::Handler;
 use XML::SAX::ParserFactory;
 use IO::File;
 
-our $VERSION = '0.3';
+our $VERSION = '0.4';
 
 =head1 NAME
 
@@ -239,6 +239,9 @@ sub translateField {
             return;
         }
     }
+
+    ## if the subfield doesn't end in a period or a right paren add a period
+    $subfields[-1] .= '.' if ( $subfields[-1] !~ /[.)]/ );
     ## add source of translations to the field
     push( @subfields, '2', $_ ) for keys(%sources);
     return MARC::Field->new($field->tag(),$field->indicator(1),7,@subfields);
