@@ -13,6 +13,12 @@ TEST_ACCESSORS: {
     $f->tag( '650' );
     is( $f->tag(), '650', 'tag() get/set' );
 
+    $f->indicator1(1);
+    is( $f->indicator1(), '1', 'indicator1()' );
+
+    $f->indicator2('0');
+    is( $f->indicator2(), '0', 'indicator2()' );
+
     $f->addCopy( 'a' );
     $f->addCopy( 'b' );
     is_deeply( [ $f->copy() ], ['a','b'], 'copy() getter' );
@@ -36,9 +42,10 @@ TEST_ACCESSORS: {
 }
 
 __DATA__
-<field tag="650">
+<field tag="650" indicator1="1" indicator2="0">
 <copy>a</copy>
 <copy>b</copy>
 <translate>c</translate>
 <translate>d</translate>
+<sourceSubfield>a</sourceSubfield>
 </field>

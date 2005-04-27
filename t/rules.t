@@ -67,6 +67,7 @@ ADD_RULE: {
 }
 
 __DATA__
+<!-- the rule mappings themselves -->
 <rules>
 
 <rule field="610" subfield="b">

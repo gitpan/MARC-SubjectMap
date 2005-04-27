@@ -44,6 +44,8 @@ SET_RULES: {
 XML: {
     my $map = MARC::SubjectMap->new();
 
+    $map->sourceLanguage( 'en' );
+
     ## add some fields to the config
     $map->addField(
         MARC::SubjectMap::Field->new({
@@ -99,6 +101,10 @@ __DATA__
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <config>
 
+<!-- the original language -->
+<sourceLanguage>en</sourceLanguage>
+
+<!-- the fields and subfields to be processed -->
 <fields>
 
 <field tag="650">
@@ -106,6 +112,7 @@ __DATA__
 <copy>d</copy>
 <translate>a</translate>
 <translate>z</translate>
+<sourceSubfield>a</sourceSubfield>
 </field>
 
 <field tag="600">
@@ -113,10 +120,12 @@ __DATA__
 <copy>o</copy>
 <translate>f</translate>
 <translate>g</translate>
+<sourceSubfield>a</sourceSubfield>
 </field>
 
 </fields>
 
+<!-- the rule mappings themselves -->
 <rules>
 
 <rule field="650" subfield="a">

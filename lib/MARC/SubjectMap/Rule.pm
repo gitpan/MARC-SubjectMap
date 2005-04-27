@@ -42,7 +42,7 @@ sub new {
 
 =cut 
 
-my @fields = qw( field subfield translation source );
+my @fields = qw( field subfield source );
 
 __PACKAGE__->mk_accessors( @fields );
 
@@ -54,10 +54,19 @@ sub original {
     return $self->{original};
 }
 
+sub translation {
+    my ($self,$text) = @_;
+    if ( defined $text ) { 
+        $self->{translation} = _normalize($text);
+    }
+    return $self->{translation};
+}
+
 sub _normalize {
     my $text = shift;
     return unless defined $text;
     $text =~ s/\.$//;
+    $text =~ s/ +$//;
     return $text;
 }
 

@@ -31,11 +31,17 @@ sub start_element {
     if ( $name eq 'fields' ) { 
         $self->{inside} = 'fields';
     }
+
     # start <field> element
     elsif ( $name eq 'field' ) {
         $self->{field} = MARC::SubjectMap::Field->new();
         ## pull out tag attribute 
         $self->{field}->tag( $data->{Attributes}{'{}tag'}{Value} );
+        # these are optional
+        $self->{field}->indicator1($data->{Attributes}{'{}indicator1'}{Value})
+            if exists $data->{Attributes}{'{}indicator1'}{Value};
+        $self->{field}->indicator2($data->{Attributes}{'{}indicator2'}{Value})
+            if exists $data->{Attributes}{'{}indicator2'}{Value};
     }
 
     # start <rules> element 
@@ -43,6 +49,7 @@ sub start_element {
         $self->{inside} = 'rules'; 
         $self->{rules} = MARC::SubjectMap::Rules->new();
     }
+
     # start <rule> element
     elsif ( $name eq 'rule' ) {
         $self->{rule} = MARC::SubjectMap::Rule->new();
@@ -55,8 +62,13 @@ sub end_element {
     my ($self,$data) = @_;
     my $name = $data->{Name};
 
-    ## process <fields> content 
-    if ( $self->{inside} eq 'fields' ) { 
+    # process sourceLanguage element
+    if ( $name eq 'sourceLanguage' ) {
+        $self->{config}->sourceLanguage( $self->{text} );
+    }
+
+    # process <fields> content 
+    elsif ( $self->{inside} eq 'fields' ) { 
         if ( $name eq 'field' ) {
             $self->{config}->addField( $self->{field} );
         }
@@ -68,7 +80,7 @@ sub end_element {
         }
     }
 
-    ## process <rules> content 
+    # process <rules> content 
     elsif ( $self->{inside} eq 'rules' ) {
         if ( $name eq 'rules' ) { 
             $self->{config}->rules( $self->{rules} );
@@ -84,6 +96,9 @@ sub end_element {
         }
         elsif ( $name eq 'source' ) {
             $self->{rule}->source( $self->{text} );
+        }
+        elsif ( $name eq 'sourceSubfield' ) {
+            $self->{rule}->sourceSubfield( $self->{text} );
         }
     }
 

@@ -30,4 +30,3 @@ my $generatedXML = join( '', <GENERATED> );
 ## now compare
 is( $generatedXML, $originalXML, "XML before and after matches" );
 
-

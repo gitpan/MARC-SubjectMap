@@ -10,14 +10,20 @@ use_ok( 'MARC::SubjectMap::Field' );
 use_ok( 'MARC::SubjectMap::Rules' );
 use_ok( 'MARC::SubjectMap::Rule' );
 
-## configure MARC::SubjectMap object
+## configure MARC::SubjectMap object, remember the fields we 
+## added so we can pass them into translateField even though
+## most code would never use translateField directly
 my $map = MARC::SubjectMap->new();
-$map->addField( 
-    MARC::SubjectMap::Field->new( { tag => 600, translate => ['a','b'] } )
-);
-$map->addField(
-    MARC::SubjectMap::Field->new( { tag => 650, translate => ['a'] } )
-);
+my $field600 = MARC::SubjectMap::Field->new( { 
+    tag         => 600, 
+    translate   => ['a','b'], 
+} );
+$map->addField( $field600 );
+my $field650 = MARC::SubjectMap::Field->new( { 
+    tag         => 650, 
+    translate   => ['a'] 
+} );
+$map->addField( $field650 );
 
 ## log to a temp file
 my ($fh,$filename) = tempfile();
@@ -56,7 +62,7 @@ $map->rules( $rules );
 
 VERIFY_FIELD_TRANSLATION: {
     my $old = MARC::Field->new( '600', '', '0', a=>'foo', b=>'goo' );
-    my $new = $map->translateField($old);
+    my $new = $map->translateField($old,$field600);
     isa_ok( $new, 'MARC::Field' );
     is( $new->indicator(2), 7, 'indicator 2 is set properly to 7' );
     my @subfields = $new->subfields();
@@ -68,15 +74,27 @@ VERIFY_FIELD_TRANSLATION: {
 
 VERIFY_SOURCE_WHEN_SUBFIELD_A_IS_ABSENT: {
     my $old = MARC::Field->new( '600', '', '0', b=>'goo' );
-    my $new = $map->translateField($old);
+    my $new = $map->translateField($old,$field600);
     isa_ok( $new, 'MARC::Field' );
-    is( $new->subfield(2), "bogusy", "got source from subfield b" );
+    is( $new->subfield(2), "bogusy", "got last source" );
+}
+
+VERIFY_SOURCE_WHEN_NOT_SUBFIELD_A: {
+    my $old = MARC::Field->new( '600', '', '0', a=>'foo', b=>'goo', a=>'foo');
+    my $field600 = MARC::SubjectMap::Field->new( { 
+        tag             => 600, 
+        translate       => ['a','b'], 
+        sourceSubfield  => 'b',
+    } );
+    my $new = $map->translateField($old,$field600);
+    isa_ok( $new, 'MARC::Field' );
+    is( $new->subfield(2), "bogusy", "got correct non subfield a source" );
 }
 
 VERIFY_REAL_TRANSLATION: {
     my $old = MARC::Field->new( '650', '', '0', 
         a=>'COMMON LISP (Computer Program Language)' );
-    my $new = $map->translateField($old);
+    my $new = $map->translateField($old,$field650);
     isa_ok( $new, 'MARC::Field' );
     is( $new->indicator(2), 7, 'indicator 2 is set properly to 7' );
     my @subfields = $new->subfields();
@@ -88,13 +106,18 @@ VERIFY_REAL_TRANSLATION: {
 
 VERIFY_FAILED_FIELD_TRANSLATION: {
     my $old = MARC::Field->new( '600', '', '0', a=>'foo', b=>'foo' );
-    my $new = $map->translateField($old);
+    my $new = $map->translateField($old,$field600);
     ok( ! $new, 'failed field translation returned undef' );
 }
 
 VERIFY_ONLY_LCSH_FIELD: {
     my $old = MARC::Field->new( '600', '', '1', a=>'foo', b=>'goo' );
-    my $new = $map->translateField($old);
+    my $field600 = MARC::SubjectMap::Field->new( { 
+        tag             => 600, 
+        translate       => ['a','b'], 
+        indicator2      => 0,
+    } );
+    my $new = $map->translateField($old,$field600);
     ok( ! $new, 'lcsh field only' );
 }
 

@@ -1,3 +1,4 @@
+Changes
 bin/subject-remove
 bin/subjmap
 bin/subjmap-template
@@ -10,11 +11,14 @@ lib/MARC/SubjectMap/XML.pm
 Makefile.PL
 MANIFEST
 README
+t/config.xml
 t/field.t
 t/handler.t
-t/marc.dat
+t/record.dat
+t/record.t
 t/rule.t
 t/rules.t
+t/shakespeare.t
 t/subjectmap.t
 t/test.xml
 t/translate.t

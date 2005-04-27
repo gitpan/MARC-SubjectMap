@@ -5,12 +5,12 @@ use warnings;
 use BerkeleyDB;
 use File::Temp qw( tempfile );
 use Storable qw( freeze thaw );
-use MARC::SubjectMap::XML qw( startTag endTag );
+use MARC::SubjectMap::XML qw( startTag endTag comment );
 use Carp qw( croak );
 
 =head1 NAME
 
-MARC::SubjectMap:Rules - storage for rules
+MARC::SubjectMap::Rules - storage for rules
 
 =head1 SYNOPSIS
 
@@ -90,6 +90,7 @@ sub getRule {
 
 sub toXML {
     my ($self,$fh) = @_;
+    print $fh comment( "the rule mappings themselves" ), "\n";
     print $fh startTag( "rules" ), "\n\n";
     while ( my($k,$v) = each(%{$self->{rules}}) ) {
         my $rule = thaw($v);

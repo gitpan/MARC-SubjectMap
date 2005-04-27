@@ -4,13 +4,13 @@ use strict;
 use warnings;
 use Carp qw( croak );
 use MARC::Field;
-use MARC::SubjectMap::XML qw( startTag endTag );
+use MARC::SubjectMap::XML qw( startTag endTag element comment );
 use MARC::SubjectMap::Rules;
 use MARC::SubjectMap::Handler;
 use XML::SAX::ParserFactory;
 use IO::File;
 
-our $VERSION = '0.7';
+our $VERSION = '0.9';
 
 =head1 NAME
 
@@ -65,8 +65,9 @@ The constructor which accepts no arguments.
 
 sub new {
     my ($class) = @_;
-    my $self = bless { fields => [] }, ref($class) || $class;
-    return $self;
+    my $stats = { recordsProcessed => 0, fieldsAdded => 0, errors => 0 };
+    my $self = { fields => [], sourceLanguage => '', 'stats' => $stats };
+    return bless $self, ref($class) || $class;
 }
 
 =head2 newFromConfig()
@@ -141,12 +142,28 @@ the handful of fields.
 
 =cut
 
+
+
 sub rules {
     my ($self,$rules) = @_;
     croak( "must supply MARC::SubjectMap::Rules object if setting rules" )
         if $rules and ref($rules) ne 'MARC::SubjectMap::Rules';
     $self->{rules} = $rules if $rules;
     return $self->{rules};
+}
+
+=head2 sourceLanguage()
+
+Option for specifying the three digit language code to be expected in 
+translation records. If a record is passed is translated that is not of the
+expected source language then a log message will be generated.
+
+=cut
+
+sub sourceLanguage {
+    my ($self,$lang) = @_;
+    $self->{sourceLanguage} = $lang if defined $lang;
+    return $self->{sourceLanguage};
 }
 
 =head2 translateRecord()
@@ -162,17 +179,33 @@ sub translateRecord {
     croak( "must supply MARC::Record object to translateRecord()" )
         if ! ref($record) or ! $record->isa( 'MARC::Record' );
 
+    $self->{stats}{recordsProcessed}++;
+
+    ## log message if the record isn't the expected language
+    if ( language($record) ne $self->sourceLanguage() ) {
+        $self->log( sprintf( "record language=%s instead of %s",
+            language($record), $self->sourceLanguage() ) );
+    }
+
     ## create a copy of the record to add to
     my $clone = $record->clone();
     my $found = 0;
+
+    # process each field that we need to look at
     foreach my $field ( $self->fields() ) { 
+
         my @marcFields = $record->field( $field->tag() );
         my $fieldCount = 0;
+
         foreach my $marcField ( @marcFields ) {
             $fieldCount++;
-            my $new = $self->translateField($marcField);
+
+            # do the translation
+            my $new = $self->translateField( $marcField, $field );
+
             if ( $new ) { 
                 $clone->insert_grouped_field($new);
+                $self->{stats}{fieldsAdded}++;
                 $found = 1;
             } 
             else {
@@ -189,74 +222,117 @@ sub translateRecord {
     return;
 }
 
-=head2 translateField()
-
-Accepts a MARC::Field object and returns a translated version of it if it can
-be translated. If it can't be translated then undef is returned.
-
-=cut 
+# you won't want to call this directly so there's no POD for it
 
 sub translateField {
-    my ($self,$field) = @_;
+    # args are MARC::SubjectMap object, the MARC::Field to translate
+    # and the default subfield to use for the source code that will 
+    # end up in subfield 2 of the new field we are going to return
+    # undef is returned if we don't have rules to translate each subfield 
+    my ($self,$field,$fieldConfig) = @_;
     croak( "must supply MARC::Field object to translateField()" )
-        if ! ref($field) or ! $field->isa( 'MARC::Field' );
+        if !ref($field) or !$field->isa('MARC::Field');
+    croak( "must pass in MARC::SubjectMap::Field" ) 
+        if !ref($fieldConfig) or !$fieldConfig->isa('MARC::SubjectMap::Field');
 
     ## subfields with subfield 2 already present are not translated
     return if $field->subfield(2);
 
-    ## only lcsh subject headings are translated
-    return if $field->indicator(2) ne '0';
+    ## don't bother translating if it doesn't meet indicator criteria
+    my $indicator1 = $fieldConfig->indicator1();
+    my $indicator2 = $fieldConfig->indicator2();
+    return if defined $indicator1 and $indicator1 ne $field->indicator(1) ;
+    return if defined $indicator2 and $indicator2 ne $field->indicator(2) ;
 
-    my @subfields;
-    my ($source, $lastSource);
+    ## these are subfields we can copy wholesale 
+    my @copySubfields = $fieldConfig->copy();
+
+    my (@subfields,%sources,$lastSource,$didTranslation);
     foreach my $subfield ( $field->subfields() ) {
         my ($subfieldCode,$subfieldValue) = @$subfield;
-        # remove trailing period if present
+
+        ## remove trailing period if present
         $subfieldValue =~ s|\.$||;
+
+        ## if we just copy this subfield lets do it and move on
+        if ( grep /^$subfieldCode$/, @copySubfields ) {
+            push( @subfields, $subfieldCode, $subfieldValue );
+            next;
+        }
+
+        ## remove trailing whitespace since all rules have had their
+        ## original , but remember it so we can add it
+        ## back on to the translated subfield
+        my $trailingSpaces = '';
+        if ( $subfieldValue =~ /( +)$/ ) {
+            $trailingSpaces = $1;
+        }
+        
+        ## look up the rule!
         my $rule = $self->{rules}->getRule( 
             field       => $field->tag(),
             subfield    => $subfieldCode, 
             original    => $subfieldValue, );
-        if ( $rule ) { 
 
-            ## must have translation
-            if ( $rule->translation() ) {
-                push( @subfields, $subfield->[0], $rule->translation() );
+        ## if we have a matching rule
+        if ( $rule ) { 
+           if ( $rule->translation() ) {
+                $didTranslation = 1;
+                push( @subfields, $subfieldCode, 
+                    $rule->translation() . $trailingSpaces );
             } else {
+                $self->{stats}{errors}++;
                 $self->log( "missing translation for rule: ".$rule->toString());
             }
     
             ## if a subfield a store away the source
-            if ( $rule->source() ) { 
-                $source = $rule->source() if $subfieldCode eq 'a';
-                $lastSource = $rule->source();
-            }
+            $sources{ $subfieldCode } = $rule->source();
+            $lastSource = $rule->source();
         }
+
+        ## uhoh we don't know what to do with this subfield
         else {
+            $self->{stats}{errors}++;
             $self->log( 
-                "no rule for field=" . $field->tag() .
-                " subfield=" . $subfield->[0] . 
-                " value=".$subfield->[1] 
+                sprintf( 
+                    'could not translate "%s" from %s $%s',
+                    $subfieldValue, $field->tag(), $subfieldCode 
+                )
             );
             return;
         }
     }
 
-    ## if the subfield doesn't end in a period or a right paren add a period
+    ## if we didn't translate anything no need to make a new field
+    return if ! $didTranslation;
+
+    ## if the last subfield doesn't end in a <.> or a <)> add a period
     $subfields[-1] .= '.' if ( $subfields[-1] !~ /[.)]/ );
 
-    ## add source of translations to the field
-    ## if we found a subfield a then use the source from that
-    ## otherwise use the last source that we found
-    if ( defined($source) ) {
-        push( @subfields, '2', $source );
-    } elsif( defined($lastSource) ) { 
+    ## the configuration determines what subfield should have precedence
+    ## in determining the source of the subfield.
+    my $sourceSubfield = $fieldConfig->sourceSubfield();
+    if ( exists $sources{ $sourceSubfield } ) {
+        push( @subfields, '2', $sources{ $sourceSubfield } );
+    } elsif ( defined $lastSource ) {
         push( @subfields, '2', $lastSource );
     } else {
+        $self->{stats}{errors}++;
         $self->log( "missing source for new field: ".join('', @subfields ) );
     }
-
+   
     return MARC::Field->new($field->tag(),$field->indicator(1),7,@subfields);
+}
+
+=head2 stats()
+
+Returns a hash of statistics for conversions performed by a MARC::SubjectMap
+object.
+
+=cut
+
+sub stats {
+    return %{ shift->{stats} };
 }
 
 =head2 setLog()
@@ -295,8 +371,15 @@ sub toXML {
     my ($self,$fh) = @_;
     print $fh qq(<?xml version="1.0" encoding="ISO-8859-1"?>\n);
     print $fh startTag( "config" ),"\n\n";
+    
+    # language limiter if present
+    if ( $self->sourceLanguage() ) {
+        print $fh comment( "the original language" ), "\n";
+        print $fh element( "sourceLanguage", $self->sourceLanguage() ), "\n\n"
+    }
 
     ## add fields
+    print $fh comment( "the fields and subfields to be processed" )."\n";
     print $fh startTag( "fields" ), "\n\n";
     foreach my $field ( $self->fields() ) {
         print $fh $field->toXML(), "\n";
@@ -311,6 +394,14 @@ sub toXML {
     print $fh "\n", endTag( "config" ), "\n";
 }
 
+# helper to extract the language code from the 008
+
+sub language {
+    my $r = shift;
+    my $f008 = $r->field('008');
+    return '' if ! $f008;
+    return substr( $f008->data(), 35, 3 );
+}
 
 sub DESTROY {
     my $self = shift;
