@@ -47,13 +47,14 @@ my $map = MARC::SubjectMap->newFromConfig( $config );
 $map->setLog( $log ) if $log;
 
 ## open output file
-my $outHandle = IO::File->new(">$out") 
-    or fatal( "unable to open output file: $out" );
+#my $outHandle = IO::File->new(">$out") 
+#    or fatal( "unable to open output file: $out" );
+open my $outHandle, ">$out";
 
 ## open MARC batch file
 my $batch = MARC::Batch->new( 'USMARC', $in );
-$batch->warnings_off();
-$batch->strict_off();
+#$batch->warnings_off();
+#$batch->strict_off();
 
 ## process each record, writing out translated record 
 ## if it could be translated
@@ -63,12 +64,9 @@ while ( my $record = $batch->next() ) {
 }
 
 my %stats = $map->stats();
-$outHandle->print( "\n" );
-$outHandle->print( "records processed: " . $stats{recordsProcessed} . "\n" );
-$outHandle->print( "headings added: " . $stats{fieldsAdded} . "\n" );
-$outHandle->print( "errors: " . $stats{errors} . "\n" );
-
-$map->writeConfig("argh");
+$map->log( "records processed: " . $stats{recordsProcessed} );
+$map->log( "headings added: " . $stats{fieldsAdded} );
+$map->log( "errors: " . $stats{errors} );
 
 sub fatal {
     print "fatal: " . localtime() . ": ".shift;

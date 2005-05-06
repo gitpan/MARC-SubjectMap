@@ -1,14 +1,15 @@
 MARC::SubjectMap History
 
-v0.9
+v0.91   Thu May  5 21:50:59 CDT 2005
+        - adjust logging a bit more
+
+v0.9    Apr 26 23:59:21 2005
         - enhanced logging
         - added sourceLanguage configuration option
         - added indicator1 and indicator2 field attributes to config
         - only add new fields when there are translations, not just copies
           of subfield data.
         - added record.t
-
-v0.8
         - fixed doc type (thanks Brian Cassidy)
 
 v0.7    Fri Mar  4 09:45:02 CST 2005 

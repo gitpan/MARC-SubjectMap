@@ -10,7 +10,7 @@ use MARC::SubjectMap::Handler;
 use XML::SAX::ParserFactory;
 use IO::File;
 
-our $VERSION = '0.9';
+our $VERSION = '0.91';
 
 =head1 NAME
 
@@ -65,8 +65,12 @@ The constructor which accepts no arguments.
 
 sub new {
     my ($class) = @_;
-    my $stats = { recordsProcessed => 0, fieldsAdded => 0, errors => 0 };
-    my $self = { fields => [], sourceLanguage => '', 'stats' => $stats };
+    my $self = { 
+        fields          => [], 
+        sourceLanguage  => '', 
+        error           => '', 
+        stats           => { recordsProcessed=>0, fieldsAdded=>0, errors=>0 } 
+    };
     return bless $self, ref($class) || $class;
 }
 
@@ -181,10 +185,17 @@ sub translateRecord {
 
     $self->{stats}{recordsProcessed}++;
 
+    ## get the control number for the record
+    my $control = $record->field('001') ?  $record->field('001')->data() : '';
+    $control =~ s/ +$//;
+
     ## log message if the record isn't the expected language
     if ( language($record) ne $self->sourceLanguage() ) {
-        $self->log( sprintf( "record language=%s instead of %s",
-            language($record), $self->sourceLanguage() ) );
+        $self->log( sprintf( 
+            "record language is '%s' instead of '%s' in record %i with 001 %s", 
+            language($record), $self->sourceLanguage(),
+            $self->{stats}{recordsProcessed}, $control )
+        );
     }
 
     ## create a copy of the record to add to
@@ -202,19 +213,26 @@ sub translateRecord {
 
             # do the translation
             my $new = $self->translateField( $marcField, $field );
+            my $error = $self->error();
 
             if ( $new ) { 
                 $clone->insert_grouped_field($new);
                 $self->{stats}{fieldsAdded}++;
                 $found = 1;
             } 
-            else {
-                my $control = $record->field('001') ? 
-                    $record->field('001')->data() : '';
+            elsif ( $error ) {
+                $self->{stats}{errors}++;
                 my $suffix = $fieldCount == 1 ? 'st' : $fieldCount == 2 ? 'nd' 
                     : $fieldCount == 3 ? 'rd' : 'th';
                 $self->log( "couldn't translate $fieldCount$suffix ".
-                    $field->tag() . " in record with 001 $control" );
+                    $field->tag() . " in record ".
+                    $self->{stats}{recordsProcessed}. 
+                    " with 001 $control: $error" );
+            }
+            else {
+                # the field didn't match subfield filters or
+                # it only had copy actions and no translations
+                # so we just continue along
             }
         }
     }
@@ -223,22 +241,29 @@ sub translateRecord {
 }
 
 # you won't want to call this directly so there's no POD for it
+# warning: subroutine that's longer than your console window alert
+# TODO: break this up
 
 sub translateField {
     # args are MARC::SubjectMap object, the MARC::Field to translate
-    # and the default subfield to use for the source code that will 
-    # end up in subfield 2 of the new field we are going to return
-    # undef is returned if we don't have rules to translate each subfield 
+    # and the MARC::SubjectMap::Field object which defines how we translate
     my ($self,$field,$fieldConfig) = @_;
     croak( "must supply MARC::Field object to translateField()" )
         if !ref($field) or !$field->isa('MARC::Field');
     croak( "must pass in MARC::SubjectMap::Field" ) 
         if !ref($fieldConfig) or !$fieldConfig->isa('MARC::SubjectMap::Field');
 
+    # make sure error flag is undef
+    $self->error( undef );
+
     ## subfields with subfield 2 already present are not translated
-    return if $field->subfield(2);
+    if ($field->subfield(2)) {
+        $self->error( "subfield 2 already present" );
+        return;
+    }
 
     ## don't bother translating if it doesn't meet indicator criteria
+    ## no error set here since it really isn't an error just a filter
     my $indicator1 = $fieldConfig->indicator1();
     my $indicator2 = $fieldConfig->indicator2();
     return if defined $indicator1 and $indicator1 ne $field->indicator(1) ;
@@ -281,8 +306,8 @@ sub translateField {
                 push( @subfields, $subfieldCode, 
                     $rule->translation() . $trailingSpaces );
             } else {
-                $self->{stats}{errors}++;
-                $self->log( "missing translation for rule: ".$rule->toString());
+                $self->error("missing translation for rule: ".$rule->toString);
+                return;
             }
     
             ## if a subfield a store away the source
@@ -292,8 +317,7 @@ sub translateField {
 
         ## uhoh we don't know what to do with this subfield
         else {
-            $self->{stats}{errors}++;
-            $self->log( 
+            $self->error( 
                 sprintf( 
                     'could not translate "%s" from %s $%s',
                     $subfieldValue, $field->tag(), $subfieldCode 
@@ -304,6 +328,7 @@ sub translateField {
     }
 
     ## if we didn't translate anything no need to make a new field
+    ## note we dont' set an error message since this isn't really an error
     return if ! $didTranslation;
 
     ## if the last subfield doesn't end in a <.> or a <)> add a period
@@ -317,7 +342,6 @@ sub translateField {
     } elsif ( defined $lastSource ) {
         push( @subfields, '2', $lastSource );
     } else {
-        $self->{stats}{errors}++;
         $self->log( "missing source for new field: ".join('', @subfields ) );
     }
    
@@ -401,6 +425,15 @@ sub language {
     my $f008 = $r->field('008');
     return '' if ! $f008;
     return substr( $f008->data(), 35, 3 );
+}
+
+
+# helper to store a single error message, not really for public use
+
+sub error {
+    my ($self,$msg) = @_;
+    if ( $msg ) { $self->{error} = $msg; }
+    return $self->{error};
 }
 
 sub DESTROY {
