@@ -10,7 +10,7 @@ use MARC::SubjectMap::Handler;
 use XML::SAX::ParserFactory;
 use IO::File;
 
-our $VERSION = '0.91';
+our $VERSION = '0.93';
 
 =head1 NAME
 
@@ -146,8 +146,6 @@ the handful of fields.
 
 =cut
 
-
-
 sub rules {
     my ($self,$rules) = @_;
     croak( "must supply MARC::SubjectMap::Rules object if setting rules" )
@@ -183,19 +181,15 @@ sub translateRecord {
     croak( "must supply MARC::Record object to translateRecord()" )
         if ! ref($record) or ! $record->isa( 'MARC::Record' );
 
-    $self->{stats}{recordsProcessed}++;
+    my $record_id = $record->field('001') ?  $record->field('001')->data() : '';
+    $record_id =~ s/ +$//;
 
-    ## get the control number for the record
-    my $control = $record->field('001') ?  $record->field('001')->data() : '';
-    $control =~ s/ +$//;
+    $self->{stats}{recordsProcessed}++;
 
     ## log message if the record isn't the expected language
     if ( language($record) ne $self->sourceLanguage() ) {
-        $self->log( sprintf( 
-            "record language is '%s' instead of '%s' in record %i with 001 %s", 
-            language($record), $self->sourceLanguage(),
-            $self->{stats}{recordsProcessed}, $control )
-        );
+        $self->log( sprintf( "record language=%s instead of %s",
+            language($record), $self->sourceLanguage() ) );
     }
 
     ## create a copy of the record to add to
@@ -219,15 +213,12 @@ sub translateRecord {
                 $clone->insert_grouped_field($new);
                 $self->{stats}{fieldsAdded}++;
                 $found = 1;
+                $self->log("record $record_id: translated \"" .
+                    $marcField->as_string() . '" to "' . 
+                    $new->as_string() . '"') ;
             } 
             elsif ( $error ) {
-                $self->{stats}{errors}++;
-                my $suffix = $fieldCount == 1 ? 'st' : $fieldCount == 2 ? 'nd' 
-                    : $fieldCount == 3 ? 'rd' : 'th';
-                $self->log( "couldn't translate $fieldCount$suffix ".
-                    $field->tag() . " in record ".
-                    $self->{stats}{recordsProcessed}. 
-                    " with 001 $control: $error" );
+                $self->log("record $record_id: $error");
             }
             else {
                 # the field didn't match subfield filters or
@@ -306,6 +297,7 @@ sub translateField {
                 push( @subfields, $subfieldCode, 
                     $rule->translation() . $trailingSpaces );
             } else {
+                $self->{stats}{errors}++;
                 $self->error("missing translation for rule: ".$rule->toString);
                 return;
             }
@@ -317,6 +309,7 @@ sub translateField {
 
         ## uhoh we don't know what to do with this subfield
         else {
+            $self->{stats}{errors}++;
             $self->error( 
                 sprintf( 
                     'could not translate "%s" from %s $%s',
@@ -342,6 +335,7 @@ sub translateField {
     } elsif ( defined $lastSource ) {
         push( @subfields, '2', $lastSource );
     } else {
+        $self->{stats}{errors}++;
         $self->log( "missing source for new field: ".join('', @subfields ) );
     }
    
@@ -379,11 +373,11 @@ sub setLog {
 
 sub log {
     my ($self,$msg) = @_;
-    my $string = localtime().": $msg\n";
+    $msg .= "\n";
     if ( $self->{log} ) {
-        $self->{log}->print( $string );
+        $self->{log}->print( $msg );
     } else {
-        print STDERR $string;
+        print STDERR $msg;
     }
 }
 
@@ -397,10 +391,9 @@ sub toXML {
     print $fh startTag( "config" ),"\n\n";
     
     # language limiter if present
-    if ( $self->sourceLanguage() ) {
-        print $fh comment( "the original language" ), "\n";
-        print $fh element( "sourceLanguage", $self->sourceLanguage() ), "\n\n"
-    }
+    my $lang = $self->sourceLanguage() || '';
+    print $fh comment( "the original language" ), "\n";
+    print $fh element( "sourceLanguage", $self->sourceLanguage() ), "\n\n";
 
     ## add fields
     print $fh comment( "the fields and subfields to be processed" )."\n";
@@ -451,6 +444,8 @@ sub DESTROY {
 =item * L<MARC::SubjectMap::Rule>
 
 =item * L<MARC::SubjectMap::Field>
+
+=back
 
 =head1 AUTHORS
 

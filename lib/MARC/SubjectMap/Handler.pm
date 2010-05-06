@@ -6,7 +6,6 @@ package MARC::SubjectMap::Handler;
 use strict;
 use warnings;
 use base qw( XML::SAX::Base );
-use Encode;
 
 use MARC::SubjectMap;
 use MARC::SubjectMap::Rule;
@@ -111,7 +110,6 @@ sub characters {
     my ($self,$data) = @_;
     my $text = $data->{Data};
     $text =~ s/[\r\n]//g; # strip newlines
-    Encode::_utf8_off( $text );
     $self->{text} .= $text;
 }
 
